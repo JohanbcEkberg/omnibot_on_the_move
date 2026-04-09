@@ -137,6 +137,8 @@ class ObstacleEditor:
     self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
   
   def _send_to_server(self):
+    self.has_sent_to_server = True
+    return
     if self.has_sent_to_server:
       text = "Obstacles already sent to server. Restart the app to send a new set."
       self.info_label.config(text=text)
