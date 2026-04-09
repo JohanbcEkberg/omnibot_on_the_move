@@ -83,7 +83,7 @@ class Omnibot:
   def control_loop(self):
     K = 4
     I = 0.5
-    D = 8
+    D = 6
     theta_scale = 0.25
     theta_cmd_limit = 2.0
 
@@ -95,7 +95,7 @@ class Omnibot:
     prev_error_y = 0.0
     prev_error_theta = 0.0
 
-    integral_limit = 100
+    integral_limit = 0.5
     dt = 0.05
     
     # # Ensure we have trajectory data 
@@ -103,7 +103,7 @@ class Omnibot:
     #   print("Error: No trajectory data loaded.")
     #   return
 
-    ref_pos = [1, 0, 0]
+    ref_pos = [1, 0, math.radians(90)]
     ref_vel = [1, 0, 0]
 
     with self.connection as conn:
@@ -113,7 +113,7 @@ class Omnibot:
         
         current_state = conn.get_state() # [x, y, theta]
         current_state[2] = math.radians(current_state[2]) # Convert theta to radians
-        current_state[0] += 0.12 * math.sin(current_state[2])
+        current_state[0] -= 0.12 * math.sin(current_state[2])
         current_state[1] += 0.12 * math.cos(current_state[2])
         
         # ref_pos = self.positions[i]

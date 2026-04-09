@@ -5,7 +5,7 @@ from time import time, sleep
 #from omnibot.tcp import Connection
 from tcp import Connection
 
-def run_dummybot(HOST, PORT, verbose=True):
+def run_dummybot(HOST, PORT, verbose=False):
     """
     Runs a dummybot at host HOST that rotates a bit while printing x and y coordinates.
     """
@@ -29,18 +29,21 @@ def run_dummybot(HOST, PORT, verbose=True):
         """
         # Go the other way
         while True:
-            t0 = time()
-            print('x:'+str(bot.get_x()) + '  y:'+str(bot.get_y()) )
-            #bot.set_speeds([-vset,-vset,-vset])
-              
-            print('theta:'+str(bot.get_theta()))
+            import math
+            deg_theta = bot.get_theta()
+            rad_theta = math.radians(deg_theta)
+
+            bot.set_speeds([vset,vset,vset])
+            x = bot.get_x() - 0.12 * math.sin(rad_theta)
+            y = bot.get_y() + 0.12 * math.cos(rad_theta)
+            print('deg_theta:' + str(deg_theta) + '  rad_theta:' + str(rad_theta) + '  x:'+str(x) + '  y:'+str(y))
             
-            sleep(max(0,t0+ts-time()+10))
+            sleep(1)
                     
 if __name__ == '__main__':
     # Server settings
     HOST = "130.235.83.171"
-    PORT = 9005
+    PORT = 9004
 
     if len(sys.argv) > 2:
         # If an input is given to the script, it will be interpreted as the intended
