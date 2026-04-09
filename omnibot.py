@@ -3,19 +3,27 @@ import threading
 import time
 import math
 
+MAX_SPEED = 1022
+MIN_SPEED = -1022
+
+TWO_PI_OVER_3 = 2 * math.pi / 3
+FOUR_PI_OVER_3 = 4 * math.pi / 3
+
+MOTOR_SCALING_FACTOR = 1
+
 class Omnibot:
   def __init__(self, host: str = "localhost", port: int = 8000):
     self.host = host
     self.port = port
-    self.connection = Connection(host, port, verbose=True)
-    self.running: threading.Event = threading.Event()
-    self.completed_path: threading.Event = threading.Event()
-    self.positions = []
-    self.velocities = []
-    self.accelerations = []
-    self.r = 0.025
+    self.connection = Connection(host, port, verbose=False)
+    self.running = threading.Event()
+    self.completed_path = threading.Event()
+    self.positions = []      # [[x, y, theta], ...]
+    self.velocities = []     # [[vx, vy, vtheta], ...]
+    self.accelerations = []    # [[ax, ay, atheta], ...]
+    self.r = 0.02
+    self.r_denom = 1 / self.r
     self.R = 0.15
-    self.state = [1, 0, 0] # x, y, theta
 
   def start(self):
     if self.running.is_set():
@@ -47,46 +55,114 @@ class Omnibot:
     self.completed_path.set()
     self.running.clear()
 
-  def _calc_velocities(self, state, degrees):
-    print(f"Calculating wheel speeds for state: {state} and orientation: {degrees} degrees")
-    vx, vy, vtheta = state
-    theta = math.radians(degrees)
+  def clamp(self, value, min_value, max_value):
+    return max(min(value, max_value), min_value)
 
-    phi1 = (-math.sin(theta) * vx + math.cos(theta) * vy + self.R * vtheta) / self.r
-    phi2 = (-math.sin(theta + 2*math.pi/3) * vx + math.cos(theta + 2*math.pi/3) * vy + self.R * vtheta) / self.r
-    phi3 = (-math.sin(theta + 4*math.pi/3) * vx + math.cos(theta + 4*math.pi/3) * vy + self.R * vtheta) / self.r
+  def normalize_angle_rad(self, angle_rad):
+    """Normalize angle to [-pi, pi] radians."""
+    while angle_rad > math.pi:
+      angle_rad -= 2 * math.pi
+    while angle_rad < -math.pi:
+      angle_rad += 2 * math.pi
+    return angle_rad
+
+  def _calc_wheel_speeds(self, v_vector, theta):
+    """
+    Implements the mathematical mapping from Equation 1.
+    v_vector: [vx, vy, vtheta]
+    theta: current orientation in radians
+    """
+    vx, vy, vtheta = v_vector
+    
+    phi1 = (-math.sin(theta) * vx + math.cos(theta) * vy + self.R * vtheta) * self.r_denom
+    phi2 = (-math.sin(theta + TWO_PI_OVER_3) * vx + math.cos(theta + TWO_PI_OVER_3) * vy + self.R * vtheta) * self.r_denom
+    phi3 = (-math.sin(theta + FOUR_PI_OVER_3) * vx + math.cos(theta + FOUR_PI_OVER_3) * vy + self.R * vtheta) * self.r_denom
 
     return [phi1, phi2, phi3]
   
   def control_loop(self):
-    K_p = 4.0
+    K = 4
+    I = 0.5
+    D = 8
+    theta_scale = 0.25
+    theta_cmd_limit = 2.0
+
+    x_integral = 0.0
+    y_integral = 0.0
+    theta_integral = 0.0
+
+    prev_error_x = 0.0
+    prev_error_y = 0.0
+    prev_error_theta = 0.0
+
+    integral_limit = 100
     dt = 0.05
     
-    target_vx = 5
-    target_vy = 0.0
-    target_vtheta = 0.0
+    # # Ensure we have trajectory data 
+    # if not self.positions or not self.velocities:
+    #   print("Error: No trajectory data loaded.")
+    #   return
+
+    ref_pos = [1, 0, 0]
+    ref_vel = [1, 0, 0]
 
     with self.connection as conn:
-        while True:
-            while not self.running.is_set():
-              self.running.wait()
+      while True:
+        while not self.running.is_set():
+          self.running.wait()
+        
+        current_state = conn.get_state() # [x, y, theta]
+        current_state[2] = math.radians(current_state[2]) # Convert theta to radians
+        current_state[0] += 0.12 * math.sin(current_state[2])
+        current_state[1] += 0.12 * math.cos(current_state[2])
+        
+        # ref_pos = self.positions[i]
+        # ref_vel = self.velocities[i]
 
-            robot_state = conn.get_state()
-            print(f"Current robot state: {robot_state}")
-            current_theta = robot_state[2]
+        error_x = ref_pos[0] - current_state[0]
+        error_y = ref_pos[1] - current_state[1]
+        error_theta = self.normalize_angle_rad(ref_pos[2] - current_state[2])
 
-            error_y = 0.0 - robot_state[1]
-            error_theta = 0.0 - robot_state[2]
+        if error_x ** 2 + error_y ** 2 < 0.01:
+          print("Reached target position.")
+          ref_pos = [1, 0, 0] if ref_pos == [0, 0, 0] else [0, 0, 0]
+          ref_vel[0] *= -1
+          x_integral = 0.0
+          y_integral = 0.0
+          theta_integral = 0.0
+          prev_error_x = 0.0
+          prev_error_y = 0.0
+          prev_error_theta = 0.0
+          continue
 
-            vx_cmd = target_vx
-            vy_cmd = target_vy + K_p * error_y
-            vtheta_cmd = target_vtheta + K_p * error_theta
+        x_integral = self.clamp(x_integral + error_x * dt, -integral_limit, integral_limit)
+        y_integral = self.clamp(y_integral + error_y * dt, -integral_limit, integral_limit)
+        theta_integral = self.clamp(theta_integral + error_theta * dt, -integral_limit, integral_limit)
 
-            phi = self._calc_velocities([vx_cmd, 0, 0], current_theta)
+        x_derivative = (error_x - prev_error_x) / dt
+        y_derivative = (error_y - prev_error_y) / dt
+        theta_derivative = (error_theta - prev_error_theta) / dt
 
-            int_phi = [min(max(int(p), -1022), 1022) for p in phi]
+        vx_cmd = K * error_x + I * x_integral + D * x_derivative
+        vy_cmd = K * error_y + I * y_integral + D * y_derivative
+        vtheta_cmd = K * error_theta + I * theta_integral + D * theta_derivative
+        vtheta_cmd = self.clamp(vtheta_cmd * theta_scale, -theta_cmd_limit, theta_cmd_limit)
 
-            print(f"Calculated wheel speeds: {int_phi}")
+        prev_error_x = error_x
+        prev_error_y = error_y
+        prev_error_theta = error_theta
 
-            conn.set_speeds(int_phi)
-            time.sleep(dt)
+
+        phi = self._calc_wheel_speeds([vx_cmd, vy_cmd, vtheta_cmd], current_state[2])
+
+        int_phi = [self.clamp(int(p * MOTOR_SCALING_FACTOR), MIN_SPEED, MAX_SPEED) for p in phi]
+        print(f"Current state: {current_state}, Wheel speeds: {int_phi}")
+        print(f"Integral terms: x_integral={x_integral:.3f}, y_integral={y_integral:.3f}, theta_integral={theta_integral:.3f}")
+
+        conn.set_speeds([0] + int_phi)
+
+        time.sleep(dt)
+
+    # conn.set_speeds([0, 0, 0])
+    print("Control loop finished.")
+    self.mark_done()
