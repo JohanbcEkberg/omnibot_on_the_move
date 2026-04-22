@@ -120,8 +120,6 @@ class Omnibot:
         
         ref_pos = self.positions[time_index]
         ref_vel = self.velocities[time_index]
-        print(f'REF_POS: {ref_pos}')
-        print(f'REAL_POS: {current_state}')
         time_index += 1
 
         error_x = ref_pos[0] - current_state[0]
