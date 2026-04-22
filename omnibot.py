@@ -105,7 +105,6 @@ class Omnibot:
         while not self.running.is_set():
           self.running.wait()
           last_tick = time.monotonic()
-
         if time_index >= len(self.positions) or time_index >= len(self.velocities):
           break
 
@@ -161,7 +160,7 @@ class Omnibot:
 
         elapsed = time.monotonic() - now
         time.sleep(max(0.0, dt_target - elapsed))
-
-    conn.set_speeds([0, 0, 0, 0])
+      # End while loop (stupid mf python makes it hard to see)
+      conn.set_speeds([0, 0, 0, 0])
     print("Control loop finished.")
     self.mark_done()
