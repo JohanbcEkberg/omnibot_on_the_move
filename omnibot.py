@@ -154,7 +154,6 @@ class Omnibot:
         phi = self._calc_wheel_speeds([vx_cmd, vy_cmd, vtheta_cmd], current_state[2])
 
         int_phi = [self.clamp(int(p * MOTOR_SCALING_FACTOR), MIN_SPEED, MAX_SPEED) for p in phi]
-        int_phi = []
 
         print(f"Current state: {current_state}, Wheel speeds: {int_phi}")
 
