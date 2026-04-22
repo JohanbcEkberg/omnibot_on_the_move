@@ -9,7 +9,7 @@ MIN_SPEED = -1022
 TWO_PI_OVER_3 = 2 * math.pi / 3
 FOUR_PI_OVER_3 = 4 * math.pi / 3
 
-MOTOR_SCALING_FACTOR = 3
+MOTOR_SCALING_FACTOR = 5
 
 class Omnibot:
   def __init__(self, host: str = "localhost", port: int = 8000):
@@ -92,7 +92,7 @@ class Omnibot:
     prev_error_y = 0.0
     prev_error_theta = 0.0
 
-    dt_target = 0.05
+    dt_target = 0.01
 
     filt_derivative_x = 0.0
     filt_derivative_y = 0.0
@@ -111,7 +111,7 @@ class Omnibot:
         now = time.monotonic()
         dt = now - last_tick
         last_tick = now
-        dt = self.clamp(dt, 0.015, 0.10)
+        dt = max(dt, 1e-6)
         
         current_state = conn.get_state() # [x, y, theta]
         current_state[2] = math.radians(current_state[2]) # Convert theta to radians
