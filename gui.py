@@ -5,8 +5,8 @@ from shared import Box, Circle, Obstacle, Triangle
 from client import post_obstacles_to_server
 from omnibot import Omnibot
 
-GRID_WIDTH_M = 5.0
-GRID_HEIGHT_M = 4.0
+GRID_WIDTH_M = 4.0
+GRID_HEIGHT_M = 3.0
 PIXELS_PER_METER = 140
 CANVAS_PADDING = 25
 X_MIN_M = -GRID_WIDTH_M / 2
@@ -137,8 +137,8 @@ class ObstacleEditor:
     self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
   
   def _send_to_server(self):
-    self.has_sent_to_server = True
-    return
+    # self.has_sent_to_server = True
+    # return
     if self.has_sent_to_server:
       text = "Obstacles already sent to server. Restart the app to send a new set."
       self.info_label.config(text=text)
