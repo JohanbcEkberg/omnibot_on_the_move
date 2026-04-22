@@ -9,7 +9,7 @@ MIN_SPEED = -1022
 TWO_PI_OVER_3 = 2 * math.pi / 3
 FOUR_PI_OVER_3 = 4 * math.pi / 3
 
-MOTOR_SCALING_FACTOR = 1
+MOTOR_SCALING_FACTOR = 3
 
 class Omnibot:
   def __init__(self, host: str = "localhost", port: int = 8000):
@@ -30,14 +30,14 @@ class Omnibot:
       print("Omnibot server is already running.")
       return
 
-    # if len(self.positions) == 0 or len(self.velocities) == 0 or len(self.accelerations) == 0:
-    #   print("Reading trajectory data from traj.json...")
-    #   with open("traj.json", "r") as f:
-    #     import json
-    #     traj = json.load(f)
-    #     self.positions = traj.get("q", [])
-    #     self.velocities = traj.get("q_dot", [])
-    #     self.accelerations = traj.get("q_dot_dot", [])
+    if len(self.positions) == 0 or len(self.velocities) == 0 or len(self.accelerations) == 0:
+      print("Reading trajectory data from traj.json...")
+      with open("traj.json", "r") as f:
+        import json
+        traj = json.load(f)
+        self.positions = traj.get("q", [])
+        self.velocities = traj.get("q_dot", [])
+        self.accelerations = traj.get("q_dot_dot", [])
 
     self.completed_path.clear()
     self.running.set()
@@ -81,71 +81,69 @@ class Omnibot:
     return [phi1, phi2, phi3]
   
   def control_loop(self):
-    K = 4
-    I = 0.5
-    D = 6
+    K = 4.2
+    D = 1.1
     theta_scale = 0.25
-    theta_cmd_limit = 2.0
-
-    x_integral = 0.0
-    y_integral = 0.0
-    theta_integral = 0.0
+    theta_cmd_limit = 2.6
+    feedforward_gain = 0.95
+    derivative_alpha = 0.7
 
     prev_error_x = 0.0
     prev_error_y = 0.0
     prev_error_theta = 0.0
 
-    integral_limit = 0.5
-    dt = 0.05
-    
-    # # Ensure we have trajectory data 
-    # if not self.positions or not self.velocities:
-    #   print("Error: No trajectory data loaded.")
-    #   return
+    dt_target = 0.05
 
-    ref_pos = [1, 0, math.radians(90)]
-    ref_vel = [1, 0, 0]
+    filt_derivative_x = 0.0
+    filt_derivative_y = 0.0
+    filt_derivative_theta = 0.0
 
+    time_index = 0
+    last_tick = time.monotonic()
     with self.connection as conn:
       while True:
         while not self.running.is_set():
           self.running.wait()
+          last_tick = time.monotonic()
+
+        if time_index >= len(self.positions) or time_index >= len(self.velocities):
+          break
+
+        now = time.monotonic()
+        dt = now - last_tick
+        last_tick = now
+        dt = self.clamp(dt, 0.015, 0.10)
         
         current_state = conn.get_state() # [x, y, theta]
         current_state[2] = math.radians(current_state[2]) # Convert theta to radians
         current_state[0] -= 0.12 * math.sin(current_state[2])
         current_state[1] += 0.12 * math.cos(current_state[2])
         
-        # ref_pos = self.positions[i]
-        # ref_vel = self.velocities[i]
+        ref_pos = self.positions[time_index]
+        ref_vel = self.velocities[time_index]
+        print(f'REF_POS: {ref_pos}')
+        print(f'REAL_POS: {current_state}')
+        time_index += 1
 
         error_x = ref_pos[0] - current_state[0]
         error_y = ref_pos[1] - current_state[1]
         error_theta = self.normalize_angle_rad(ref_pos[2] - current_state[2])
 
-        if error_x ** 2 + error_y ** 2 < 0.01:
-          print("Reached target position.")
-          ref_pos = [1, 0, 0] if ref_pos == [0, 0, 0] else [0, 0, 0]
-          ref_vel[0] *= -1
-          x_integral = 0.0
-          y_integral = 0.0
-          theta_integral = 0.0
-          prev_error_x = 0.0
-          prev_error_y = 0.0
-          prev_error_theta = 0.0
-          continue
-
-        x_integral = self.clamp(x_integral + error_x * dt, -integral_limit, integral_limit)
-        y_integral = self.clamp(y_integral + error_y * dt, -integral_limit, integral_limit)
-        theta_integral = self.clamp(theta_integral + error_theta * dt, -integral_limit, integral_limit)
-
         x_derivative = (error_x - prev_error_x) / dt
         y_derivative = (error_y - prev_error_y) / dt
         theta_derivative = (error_theta - prev_error_theta) / dt
 
-        vx_cmd = K * error_x + I * x_integral + D * x_derivative
-        vy_cmd = K * error_y + I * y_integral + D * y_derivative
-        vtheta_cmd = K * error_theta + I * theta_integral + D * theta_derivative
+        filt_derivative_x = derivative_alpha * filt_derivative_x + (1.0 - derivative_alpha) * x_derivative
+        filt_derivative_y = derivative_alpha * filt_derivative_y + (1.0 - derivative_alpha) * y_derivative
+        filt_derivative_theta = derivative_alpha * filt_derivative_theta + (1.0 - derivative_alpha) * theta_derivative
+
+        vx_cmd = K * error_x + D * filt_derivative_x
+        vy_cmd = K * error_y + D * filt_derivative_y
+        vtheta_cmd = K * error_theta + D * filt_derivative_theta
+
+        vx_cmd = feedforward_gain * ref_vel[0] + vx_cmd
+        vy_cmd = feedforward_gain * ref_vel[1] + vy_cmd
+        vtheta_cmd = feedforward_gain * ref_vel[2] + vtheta_cmd
         vtheta_cmd = self.clamp(vtheta_cmd * theta_scale, -theta_cmd_limit, theta_cmd_limit)
 
         prev_error_x = error_x
@@ -156,13 +154,15 @@ class Omnibot:
         phi = self._calc_wheel_speeds([vx_cmd, vy_cmd, vtheta_cmd], current_state[2])
 
         int_phi = [self.clamp(int(p * MOTOR_SCALING_FACTOR), MIN_SPEED, MAX_SPEED) for p in phi]
+        int_phi = []
+
         print(f"Current state: {current_state}, Wheel speeds: {int_phi}")
-        print(f"Integral terms: x_integral={x_integral:.3f}, y_integral={y_integral:.3f}, theta_integral={theta_integral:.3f}")
 
         conn.set_speeds([0] + int_phi)
 
-        time.sleep(dt)
+        elapsed = time.monotonic() - now
+        time.sleep(max(0.0, dt_target - elapsed))
 
-    # conn.set_speeds([0, 0, 0])
+    conn.set_speeds([0, 0, 0, 0])
     print("Control loop finished.")
     self.mark_done()
