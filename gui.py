@@ -7,7 +7,7 @@ from omnibot import Omnibot
 
 GRID_WIDTH_M = 4.0
 GRID_HEIGHT_M = 3.0
-PIXELS_PER_METER = 140
+PIXELS_PER_METER = 250
 CANVAS_PADDING = 25
 X_MIN_M = -GRID_WIDTH_M / 2
 X_MAX_M = GRID_WIDTH_M / 2
@@ -159,6 +159,12 @@ class ObstacleEditor:
 
     for obstacle in self.obstacles.values():
       print(obstacle)
+      
+    self.start_point = self.bot.connection.get_state()
+    self.start_point[2] = math.radians(self.start_point[2]) # Convert theta to radians
+    self.start_point[0] -= 0.12 * math.sin(self.start_point[2])
+    self.start_point[1] += 0.12 * math.cos(self.start_point[2])
+    
     print(f"start: {self.start_point}")
     print(f"finish: {self.finish_point}")
     post_obstacles_to_server(self.start_point, self.finish_point, list(self.obstacles.values()), clear_first=True)
