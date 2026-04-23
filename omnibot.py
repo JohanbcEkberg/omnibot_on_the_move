@@ -2,6 +2,7 @@ from tcp import Connection
 import threading
 import time
 import math
+import json
 
 MAX_SPEED = 1022
 MIN_SPEED = -1022
@@ -9,7 +10,7 @@ MIN_SPEED = -1022
 TWO_PI_OVER_3 = 2 * math.pi / 3
 FOUR_PI_OVER_3 = 4 * math.pi / 3
 
-MOTOR_SCALING_FACTOR = 5
+MOTOR_SCALING_FACTOR = 2
 
 class Omnibot:
   def __init__(self, host: str = "localhost", port: int = 8000):
@@ -83,6 +84,7 @@ class Omnibot:
   def control_loop(self):
     K = 4.2
     D = 1.1
+    I = 0.5
     theta_scale = 0.25
     theta_cmd_limit = 2.6
     feedforward_gain = 0.95
@@ -91,6 +93,11 @@ class Omnibot:
     prev_error_x = 0.0
     prev_error_y = 0.0
     prev_error_theta = 0.0
+    
+    
+    int_error_x = 0.0
+    int_error_y = 0.0
+    int_error_theta = 0.0
 
     dt_target = 0.01
 
@@ -100,6 +107,8 @@ class Omnibot:
 
     time_index = 0
     last_tick = time.monotonic()
+    
+    log = {"q" : []}
     with self.connection as conn:
       while True:
         while not self.running.is_set():
@@ -111,7 +120,7 @@ class Omnibot:
         now = time.monotonic()
         dt = now - last_tick
         last_tick = now
-        dt = max(dt, 1e-6)
+        dt = max(dt, dt_target)
         
         current_state = conn.get_state() # [x, y, theta]
         current_state[2] = math.radians(current_state[2]) # Convert theta to radians
@@ -120,11 +129,16 @@ class Omnibot:
         
         ref_pos = self.positions[time_index]
         ref_vel = self.velocities[time_index]
+        
         time_index += 1
 
         error_x = ref_pos[0] - current_state[0]
         error_y = ref_pos[1] - current_state[1]
         error_theta = self.normalize_angle_rad(ref_pos[2] - current_state[2])
+        
+        int_error_x += error_x * dt
+        int_error_y += error_y * dt
+        int_error_theta += error_theta *dt
 
         x_derivative = (error_x - prev_error_x) / dt
         y_derivative = (error_y - prev_error_y) / dt
@@ -134,9 +148,9 @@ class Omnibot:
         filt_derivative_y = derivative_alpha * filt_derivative_y + (1.0 - derivative_alpha) * y_derivative
         filt_derivative_theta = derivative_alpha * filt_derivative_theta + (1.0 - derivative_alpha) * theta_derivative
 
-        vx_cmd = K * error_x + D * filt_derivative_x
-        vy_cmd = K * error_y + D * filt_derivative_y
-        vtheta_cmd = K * error_theta + D * filt_derivative_theta
+        vx_cmd = K * error_x + D * filt_derivative_x + I * int_error_x
+        vy_cmd = K * error_y + D * filt_derivative_y + I * int_error_y
+        vtheta_cmd = K * error_theta + D * filt_derivative_theta + I * int_error_theta
 
         vx_cmd = feedforward_gain * ref_vel[0] + vx_cmd
         vy_cmd = feedforward_gain * ref_vel[1] + vy_cmd
@@ -153,12 +167,15 @@ class Omnibot:
         int_phi = [self.clamp(int(p * MOTOR_SCALING_FACTOR), MIN_SPEED, MAX_SPEED) for p in phi]
 
         print(f"Current state: {current_state}, Wheel speeds: {int_phi}")
-
+        log["q"].append(current_state)
         conn.set_speeds([0] + int_phi)
 
         elapsed = time.monotonic() - now
         time.sleep(max(0.0, dt_target - elapsed))
-      # End while loop (stupid mf python makes it hard to see)
+      # End while loop (stupid mf python makes it hard to see) womp womp johan
       conn.set_speeds([0, 0, 0, 0])
     print("Control loop finished.")
     self.mark_done()
+    
+    with open("actual_traj.json", "w") as f:
+      json.dump(log, f, indent=2)
