@@ -1,5 +1,6 @@
 from tcp import Connection
 import threading
+from collections import deque
 import time
 import math
 import json
@@ -12,7 +13,7 @@ WHEEL_TO_CENTER_DIST = 0.12
 TWO_PI_OVER_3 = 2 * math.pi / 3
 FOUR_PI_OVER_3 = 4 * math.pi / 3
 
-MOTOR_SCALING_FACTOR = 2
+MOTOR_SCALING_FACTOR = 3
 
 class Omnibot:
   def __init__(self, host: str = "localhost", port: int = 8000):
@@ -106,12 +107,19 @@ class Omnibot:
     filt_derivative_x = 0.0
     filt_derivative_y = 0.0
     filt_derivative_theta = 0.0
+    
+    filt_theta = 0.0
 
     time_index = 0
     last_tick = time.monotonic()
+
+    skipped = 0
+    used = 0
     
     log = {"q" : []}
     with self.connection as conn:
+      last_state = conn.get_state()
+      last_sample = last_state
       while True:
         while not self.running.is_set():
           self.running.wait()
@@ -129,11 +137,25 @@ class Omnibot:
         current_state[2] = math.radians(current_state[2]) # Convert theta to radians
         current_state[0] -= WHEEL_TO_CENTER_DIST * math.sin(current_state[2])
         current_state[1] += WHEEL_TO_CENTER_DIST * math.cos(current_state[2])
-        
+
         ref_pos = self.positions[time_index]
         ref_vel = self.velocities[time_index]
-        
+
+        state_diff = [current_state[i] - last_state[i] for i in range(2)]
+        ref_diff = [ref_pos[i] - last_sample[i] for i in range(2)]
         time_index += 1
+
+        dot_product = state_diff[0] * ref_diff[0] + state_diff[1] * ref_diff[1]
+        if dot_product < 0:
+          skipped += 1
+          print(f"Warning: Robot seems to be moving away from the reference trajectory at index {time_index}. Skipping this point.")
+          last_sample = ref_pos
+          last_state = current_state
+          elapsed = time.monotonic() - now
+          time.sleep(max(0.0, dt_target - elapsed))
+          continue
+        used += 1
+        
 
         error_x = ref_pos[0] - current_state[0]
         error_y = ref_pos[1] - current_state[1]
@@ -174,10 +196,13 @@ class Omnibot:
         log["q"].append(current_state)
 
         elapsed = time.monotonic() - now
+        last_sample = ref_pos
+        last_state = current_state
         time.sleep(max(0.0, dt_target - elapsed))
       # End while loop (stupid mf python makes it hard to see) womp womp johan
       conn.set_speeds([0, 0, 0, 0])
     print("Control loop finished.")
+    print(f"Skipped {skipped} points, used {used} points.")
     self.mark_done()
     
     with open("actual_traj.json", "w") as f:

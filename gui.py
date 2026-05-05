@@ -61,7 +61,7 @@ class ObstacleEditor:
       ("Circle", "circle"),
       ("Box", "box"),
       ("Triangle", "triangle"),
-      ("Place Start", "start"),
+      #("Place Start", "start"),
       ("Place Finish", "finish"),
     ]:
       ttk.Radiobutton(
@@ -99,16 +99,16 @@ class ObstacleEditor:
     theta_scale = ttk.Scale(left, from_=-180, to=180, variable=self.theta_deg_var, command=self._on_param_change)
     theta_scale.pack(fill=tk.X)
 
-    ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
-    ttk.Label(left, text="Start / Finish", font=("TkDefaultFont", 10, "bold")).pack(anchor="w")
+    # ttk.Separator(left, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+    # ttk.Label(left, text="Start / Finish", font=("TkDefaultFont", 10, "bold")).pack(anchor="w")
 
-    ttk.Label(left, text="Start theta (deg)").pack(anchor="w", pady=(8, 0))
-    start_theta_scale = ttk.Scale(left, from_=-180, to=180, variable=self.start_theta_deg_var, command=self._on_start_finish_theta_change)
-    start_theta_scale.pack(fill=tk.X)
+    # ttk.Label(left, text="Start theta (deg)").pack(anchor="w", pady=(8, 0))
+    # start_theta_scale = ttk.Scale(left, from_=-180, to=180, variable=self.start_theta_deg_var, command=self._on_start_finish_theta_change)
+    # start_theta_scale.pack(fill=tk.X)
 
-    ttk.Label(left, text="Finish theta (deg)").pack(anchor="w", pady=(8, 0))
-    finish_theta_scale = ttk.Scale(left, from_=-180, to=180, variable=self.finish_theta_deg_var, command=self._on_start_finish_theta_change)
-    finish_theta_scale.pack(fill=tk.X)
+    # ttk.Label(left, text="Finish theta (deg)").pack(anchor="w", pady=(8, 0))
+    # finish_theta_scale = ttk.Scale(left, from_=-180, to=180, variable=self.finish_theta_deg_var, command=self._on_start_finish_theta_change)
+    # finish_theta_scale.pack(fill=tk.X)
 
     ttk.Button(left, text="Delete Selected", command=self._delete_selected).pack(fill=tk.X, pady=(10, 0))
     ttk.Button(left, text="Send to server", command=self._send_to_server).pack(fill=tk.X, pady=(10, 0))
@@ -145,12 +145,8 @@ class ObstacleEditor:
       messagebox.showerror("Already sent", text)
       return
 
-    if self.start_point is None or self.finish_point is None:
-      missing = []
-      if self.start_point is None:
-        missing.append("start")
-      if self.finish_point is None:
-        missing.append("finish")
+    if self.finish_point is None:
+      missing = ["finish"]
 
       text = f"Please set {', '.join(missing)} before sending to the server."
       self.info_label.config(text=text)
@@ -160,12 +156,12 @@ class ObstacleEditor:
     for obstacle in self.obstacles.values():
       print(obstacle)
       
-    # self.start_point = self.bot.connection.get_state()
-    # self.start_point[2] = math.radians(self.start_point[2]) # Convert theta to radians
-    # self.start_point[0] -= 0.12 * math.sin(self.start_point[2])
-    # self.start_point[1] += 0.12 * math.cos(self.start_point[2])
+    self.start_point = self.bot.connection.get_state()
+    self.start_point[2] = math.radians(self.start_point[2]) # Convert theta to radians
+    self.start_point[0] -= 0.12 * math.sin(self.start_point[2])
+    self.start_point[1] += 0.12 * math.cos(self.start_point[2])
     
-    # self.finish_point[2] = self.start_point[2] #Set the finish angle to the same as the start angle
+    self.finish_point[2] = self.start_point[2] #Set the finish angle to the same as the start angle
     
     print(f"start: {self.start_point}")
     print(f"finish: {self.finish_point}")
