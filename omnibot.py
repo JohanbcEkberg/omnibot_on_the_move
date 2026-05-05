@@ -7,6 +7,8 @@ import json
 MAX_SPEED = 1022
 MIN_SPEED = -1022
 
+WHEEL_TO_CENTER_DIST = 0.12
+
 TWO_PI_OVER_3 = 2 * math.pi / 3
 FOUR_PI_OVER_3 = 4 * math.pi / 3
 
@@ -121,11 +123,12 @@ class Omnibot:
         dt = now - last_tick
         last_tick = now
         dt = max(dt, dt_target)
+        div_dt = 1 / dt
         
         current_state = conn.get_state() # [x, y, theta]
         current_state[2] = math.radians(current_state[2]) # Convert theta to radians
-        current_state[0] -= 0.12 * math.sin(current_state[2])
-        current_state[1] += 0.12 * math.cos(current_state[2])
+        current_state[0] -= WHEEL_TO_CENTER_DIST * math.sin(current_state[2])
+        current_state[1] += WHEEL_TO_CENTER_DIST * math.cos(current_state[2])
         
         ref_pos = self.positions[time_index]
         ref_vel = self.velocities[time_index]
@@ -140,9 +143,9 @@ class Omnibot:
         int_error_y += error_y * dt
         int_error_theta += error_theta *dt
 
-        x_derivative = (error_x - prev_error_x) / dt
-        y_derivative = (error_y - prev_error_y) / dt
-        theta_derivative = (error_theta - prev_error_theta) / dt
+        x_derivative = (error_x - prev_error_x) * div_dt
+        y_derivative = (error_y - prev_error_y) * div_dt
+        theta_derivative = (error_theta - prev_error_theta) * div_dt
 
         filt_derivative_x = derivative_alpha * filt_derivative_x + (1.0 - derivative_alpha) * x_derivative
         filt_derivative_y = derivative_alpha * filt_derivative_y + (1.0 - derivative_alpha) * y_derivative
@@ -166,9 +169,9 @@ class Omnibot:
 
         int_phi = [self.clamp(int(p * MOTOR_SCALING_FACTOR), MIN_SPEED, MAX_SPEED) for p in phi]
 
+        conn.set_speeds([0] + int_phi)
         print(f"Current state: {current_state}, Wheel speeds: {int_phi}")
         log["q"].append(current_state)
-        conn.set_speeds([0] + int_phi)
 
         elapsed = time.monotonic() - now
         time.sleep(max(0.0, dt_target - elapsed))
