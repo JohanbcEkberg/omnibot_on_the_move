@@ -7,10 +7,10 @@ import threading
 
 HOST = "130.235.83.171"
 SERVER_URL = "http://130.235.83.115:80"
-PORT = 9004
+PORT = 9003
 
-MIN_Y = -2
-MAX_Y = 2
+MIN_Y = -1.5
+MAX_Y = 1.5
 MIN_X = -2.0
 MAX_X = 2.0
 
