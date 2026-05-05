@@ -85,13 +85,13 @@ class Omnibot:
     return [phi1, phi2, phi3]
   
   def control_loop(self):
-    K = 6
-    D = 1.5
-    I = 1
+    K = 7
+    D = 0.6
+    I = 1.5
     theta_scale = 0.25
     theta_cmd_limit = 2.6
-    feedforward_gain = 0.95
-    derivative_alpha = 0.7
+    feedforward_gain = 0.8
+    derivative_alpha = 0.8
 
     prev_error_x = 0.0
     prev_error_y = 0.0
@@ -107,8 +107,6 @@ class Omnibot:
     filt_derivative_x = 0.0
     filt_derivative_y = 0.0
     filt_derivative_theta = 0.0
-    
-    filt_theta = 0.0
 
     time_index = 0
     last_tick = time.monotonic()
