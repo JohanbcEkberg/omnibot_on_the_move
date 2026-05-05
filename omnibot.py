@@ -15,7 +15,7 @@ FOUR_PI_OVER_3 = 4 * math.pi / 3
 
 MOTOR_SCALING_FACTOR = 4
 
-MOVING_AVERAGE_SIZE = 7
+MOVING_AVERAGE_SIZE = 5
 
 class Omnibot:
   def __init__(self, host: str = "localhost", port: int = 8000):
@@ -188,6 +188,7 @@ class Omnibot:
         prev_error_theta = error_theta
         
         moving_average.append([vx_cmd, vy_cmd, vtheta_cmd])
+
         x_average = 0
         y_average = 0
         theta_average = 0
@@ -197,8 +198,8 @@ class Omnibot:
           y_average += y
           theta_average += theta
           
-        
-        phi = self._calc_wheel_speeds([x_average / MOVING_AVERAGE_SIZE, y_average / MOVING_AVERAGE_SIZE, theta_average / MOVING_AVERAGE_SIZE], current_state[2])
+        divisor = len(moving_average)
+        phi = self._calc_wheel_speeds([x_average / divisor, y_average / divisor, theta_average / divisor], current_state[2])
         # phi = self._calc_wheel_speeds([vx_cmd, vy_cmd, vtheta_cmd], current_state[2])
 
         int_phi = [self.clamp(int(p * MOTOR_SCALING_FACTOR), MIN_SPEED, MAX_SPEED) for p in phi]
