@@ -13,7 +13,7 @@ WHEEL_TO_CENTER_DIST = 0.12
 TWO_PI_OVER_3 = 2 * math.pi / 3
 FOUR_PI_OVER_3 = 4 * math.pi / 3
 
-MOTOR_SCALING_FACTOR = 3
+MOTOR_SCALING_FACTOR = 1
 
 class Omnibot:
   def __init__(self, host: str = "localhost", port: int = 8000):
@@ -85,9 +85,9 @@ class Omnibot:
     return [phi1, phi2, phi3]
   
   def control_loop(self):
-    K = 4.2
-    D = 1.1
-    I = 0.5
+    K = 6
+    D = 1.5
+    I = 1
     theta_scale = 0.25
     theta_cmd_limit = 2.6
     feedforward_gain = 0.95
@@ -115,6 +115,7 @@ class Omnibot:
 
     skipped = 0
     used = 0
+    moving_average = deque(maxlen=5)
     
     log = {"q" : []}
     with self.connection as conn:
@@ -185,9 +186,20 @@ class Omnibot:
         prev_error_x = error_x
         prev_error_y = error_y
         prev_error_theta = error_theta
-
-
-        phi = self._calc_wheel_speeds([vx_cmd, vy_cmd, vtheta_cmd], current_state[2])
+        
+        moving_average.append([vx_cmd, vy_cmd, vtheta_cmd])
+        x_average = 0
+        y_average = 0
+        theta_average = 0
+        
+        for x, y, theta in moving_average:
+          x_average += x
+          y_average += y
+          theta_average += theta
+          
+        
+        phi = self._calc_wheel_speeds([x_average / 5, y_average / 5, theta / 5], current_state[2])
+        # phi = self._calc_wheel_speeds([vx_cmd, vy_cmd, vtheta_cmd], current_state[2])
 
         int_phi = [self.clamp(int(p * MOTOR_SCALING_FACTOR), MIN_SPEED, MAX_SPEED) for p in phi]
 
