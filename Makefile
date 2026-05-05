@@ -14,3 +14,6 @@ check-deps:
 
 run: check-deps
 	@$(PYTHON) main.py
+
+visualize:
+	@$(PYTHON) trajectory_visualizer.py
