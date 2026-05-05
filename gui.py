@@ -160,10 +160,12 @@ class ObstacleEditor:
     for obstacle in self.obstacles.values():
       print(obstacle)
       
-    self.start_point = self.bot.connection.get_state()
-    self.start_point[2] = math.radians(self.start_point[2]) # Convert theta to radians
-    self.start_point[0] -= 0.12 * math.sin(self.start_point[2])
-    self.start_point[1] += 0.12 * math.cos(self.start_point[2])
+    # self.start_point = self.bot.connection.get_state()
+    # self.start_point[2] = math.radians(self.start_point[2]) # Convert theta to radians
+    # self.start_point[0] -= 0.12 * math.sin(self.start_point[2])
+    # self.start_point[1] += 0.12 * math.cos(self.start_point[2])
+    
+    # self.finish_point[2] = self.start_point[2] #Set the finish angle to the same as the start angle
     
     print(f"start: {self.start_point}")
     print(f"finish: {self.finish_point}")
