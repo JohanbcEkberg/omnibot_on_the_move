@@ -13,7 +13,7 @@ WHEEL_TO_CENTER_DIST = 0.12
 TWO_PI_OVER_3 = 2 * math.pi / 3
 FOUR_PI_OVER_3 = 4 * math.pi / 3
 
-MOTOR_SCALING_FACTOR = 3
+MOTOR_SCALING_FACTOR = 4
 
 MOVING_AVERAGE_SIZE = 7
 
@@ -231,7 +231,11 @@ class Omnibot:
 
       victory_dance_start = time.time()
       sign = 1
-      print(r"""
+      FLASH = "\033[5m"
+      RESET = "\033[0m"
+      PINK = "\033[95m"
+      
+      msg = r"""
       ╔══════════════════════════════════════════════════════════════╗
       ║                                                              ║
       ║   ██████  ███    ███ ███    ██ ██ ██████   ██████  ███████   ║
@@ -255,7 +259,8 @@ class Omnibot:
       ║                     (づ｡◕‿‿◕｡)づ                             ║
       ║                                                              ║
       ╚══════════════════════════════════════════════════════════════╝
-      """)
+      """
+      print(f"{FLASH}{PINK}{msg}{RESET}", end="\r", flush=True)
       while time.time() - victory_dance_start < 5.0:
         speed = sign * 1000
         conn.set_speeds([0, speed,speed,speed])
