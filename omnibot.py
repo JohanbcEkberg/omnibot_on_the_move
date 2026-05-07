@@ -118,6 +118,9 @@ class Omnibot:
     moving_average = deque(maxlen=MOVING_AVERAGE_SIZE)
     
     log = {"q" : []}
+
+    final_pos = None
+
     with self.connection as conn:
       last_state = conn.get_state()
       last_sample = last_state
@@ -127,6 +130,15 @@ class Omnibot:
           last_tick = time.monotonic()
         if time_index >= len(self.positions) or time_index >= len(self.velocities):
           break
+
+        if final_pos is not None:
+          dist_to_goal = (final_pos[0] - last_state[0]) ** 2 + (final_pos[1] - last_state[1]) ** 2
+          if dist_to_goal < 0.05 * 0.05:
+            print("Robot is within 5cm of the final position. Ending control loop.")
+            break
+          
+        if final_pos is None:
+          final_pos = self.positions[-1]
 
         now = time.monotonic()
         dt = now - last_tick
@@ -204,7 +216,6 @@ class Omnibot:
           
         divisor = len(moving_average)
         phi = self._calc_wheel_speeds([x_average / divisor, y_average / divisor, theta_average / divisor], current_state[2])
-        # phi = self._calc_wheel_speeds([vx_cmd, vy_cmd, vtheta_cmd], current_state[2])
 
         int_phi = [self.clamp(int(p * MOTOR_SCALING_FACTOR), MIN_SPEED, MAX_SPEED) for p in phi]
 
@@ -217,6 +228,23 @@ class Omnibot:
         last_state = current_state
         time.sleep(max(0.0, dt_target - elapsed))
       # End while loop (stupid mf python makes it hard to see) womp womp johan
+
+      victory_dance_start = time.time()
+      sign = 1
+      print("""
+             (◕▿◕✿)  *victory dance!*
+              <)  )╯
+               /  \\
+              
+              Victory dancey-dance time!!
+          """
+        )
+      while time.time() - victory_dance_start < 5.0:
+        speed = sign * 1000
+        conn.set_speeds([0, speed,speed,speed])
+        sign *= -1
+        time.sleep(1)
+
       conn.set_speeds([0, 0, 0, 0])
     print("Control loop finished.")
     print(f"Skipped {skipped} points, used {used} points.")
