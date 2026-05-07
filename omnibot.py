@@ -231,14 +231,31 @@ class Omnibot:
 
       victory_dance_start = time.time()
       sign = 1
-      print("""
-             (◕▿◕✿)  *victory dance!*
-              <)  )╯
-               /  \\
-              
-              Victory dancey-dance time!!
-          """
-        )
+      print(r"""
+      ╔══════════════════════════════════════════════════════════════╗
+      ║                                                              ║
+      ║   ██████  ███    ███ ███    ██ ██ ██████   ██████  ███████   ║
+      ║  ██    ██ ████  ████ ████   ██ ██ ██   ██ ██    ██   ███     ║
+      ║  ██    ██ ██ ████ ██ ██ ██  ██ ██ ██████  ██    ██   ███     ║
+      ║  ██    ██ ██  ██  ██ ██  ██ ██ ██ ██   ██ ██    ██   ███     ║
+      ║   ██████  ██      ██ ██   ████ ██ ██████   ██████    ███     ║
+      ║                                                              ║
+      ║              Twajectowy Cweaw!!  UwU                         ║
+      ║                                                              ║
+      ║        > dwift contained                                     ║
+      ║        > wheew harmony westowed                              ║
+      ║        > objective compweted nya~                            ║
+      ║                                                              ║
+      ║                    \o/                                       ║
+      ║                     |      happy wobot dance activated~      ║
+      ║                    / \                                       ║
+      ║                                                              ║
+      ║            ♪ beep boop beep happy bot noises ♪               ║
+      ║                                                              ║
+      ║                     (づ｡◕‿‿◕｡)づ                             ║
+      ║                                                              ║
+      ╚══════════════════════════════════════════════════════════════╝
+      """)
       while time.time() - victory_dance_start < 5.0:
         speed = sign * 1000
         conn.set_speeds([0, speed,speed,speed])
