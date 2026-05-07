@@ -260,7 +260,8 @@ class Omnibot:
       ║                                                              ║
       ╚══════════════════════════════════════════════════════════════╝
       """
-      print(f"{FLASH}{PINK}{msg}{RESET}", end="\r", flush=True)
+      print(msg)
+      # print(f"{FLASH}{PINK}{msg}{RESET}", end="\r")
       while time.time() - victory_dance_start < 5.0:
         speed = sign * 1000
         conn.set_speeds([0, speed,speed,speed])
